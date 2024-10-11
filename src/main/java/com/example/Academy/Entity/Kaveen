@@ -1,0 +1,153 @@
+[11/10, 13:37] Kaveen: @RestController
+@RequestMapping("/api/accounts")
+@RequiredArgsConstructor
+public class AccountController {
+
+    @Autowired
+    private AccountService accountService;
+
+    @PostMapping
+    public ResponseEntity<Account> addAccount(@RequestBody Account account){
+        return new ResponseEntity<>(accountService.createAccount(account),
+                HttpStatus.CREATED);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Account> getAccountById(@PathVariable Long id) {
+        Optional<Account> account = accountService.getAccountById(id);
+        return account.map(ResponseEntity::ok)
+                .orElseGet(()->ResponseEntity.notFound().build());
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Account>> getAllAccounts(){
+        List<Account> accounts = accountService.getAllAccounts();
+        return ResponseEntity.ok(accounts);
+    }
+
+    @DeleteMapping("{id}")
+    public ResponseEntity<Void> deleteById (@PathVariable Long id) {
+        accountService.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("{id}")
+    public ResponseEntity<Account> updateById (@PathVariable Long id,
+                                               @RequestBody Account updatedAccount) {
+        Optional<Account> account = accountService.updateById(id, updatedAccount);
+        return account.map(ResponseEntity::ok)
+                .orElseGet(()->ResponseEntity.notFound().build());
+    }
+
+}
+[11/10, 13:37] Kaveen: @Service
+@RequiredArgsConstructor
+public class AccountServiceImpl implements AccountService {
+
+    @Autowired
+    private AccountRepository accountRepository;
+
+    @Override
+    public Account createAccount(Account account) {
+        // Save entity directly
+        return accountRepository.save(account);
+    }
+
+    @Override
+    public List<Account> getAllAccounts() {
+        // Return all Account entities
+        return accountRepository.findAll();
+    }
+
+    @Override
+    public Optional<Account> getAccountById(Long id) {
+        // Wrap the result in an Optional and return Account directly
+        return accountRepository.findById(id)
+                .or(() -> Optional.empty());
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        if (!accountRepository.existsById(id)) {
+            throw new NotFoundException("Account with ID " + id + " not found");
+        }
+        accountRepository.deleteById(id);
+    }
+
+    @Override
+    public Optional<Account> updateById(Long id, Account accountDetails) {
+        return accountRepository.findById(id)
+                .map(existingAccount -> {
+                    // Update necessary fields in the existing account entity
+                    existingAccount.setAccountHolderName(accountDetails.getAccountHolderName());
+                    existingAccount.setBalance(accountDetails.getBalance());
+                    // Save updated account and return it
+                    return accountRepository.save(existingAccount);
+                });
+    }
+}
+[11/10, 13:37] Kaveen: import javax.persistence.*;
+import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@Getter
+@Setter
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+    private String email;
+
+    @ManyToMany
+    @JoinTable(
+        name = "user_borrowed_books",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "book_id")
+    )
+    private List<Book> borrowedBooks; // List of books borrowed by the user
+}
+[11/10, 13:37] Kaveen: import javax.persistence.*;
+import java.util.List;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@Getter
+@Setter
+public class Author {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+    private String biography;
+
+    @OneToMany(mappedBy = "author", cascade = CascadeType.ALL)
+    private List<Book> books; // One author can write multiple books
+}
+[11/10, 13:37] Kaveen: import javax.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+@Entity
+@Getter
+@Setter
+public class Book {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String title;
+    private String isbn;
+    
+    @ManyToOne
+    @JoinColumn(name = "author_id")
+    private Author author; // Many books can have one author
+}
